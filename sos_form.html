@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Dashboard - DRMS</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>  <!-- UPDATED: Can switch to /socket.io/socket.io.js if preferred -->
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row min-vh-100">
+            <!-- Sidebar (Simple Navigation with Fixed Endpoints) -->
+            <nav class="col-md-2 d-none d-md-block bg-dark sidebar">
+                <div class="sidebar-sticky">
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link active text-white" href="{{ url_for('home') }}" style="
+    background-color: #0d6efd !important; 
+    border-radius: 5px; 
+    padding: 8px 15px; 
+    box-shadow: 0 2px 4px rgba(177, 149, 220, 0.819);
+    color: rgb(255, 251, 251) !important;"> <i class="fas fa-home"></i> Dashboard</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-white" href="{{ url_for('sos.sos_form') }}" style="
+    background-color: #0d6efd !important; 
+    border-radius: 5px; 
+    padding: 8px 15px; 
+    box-shadow: 0 2px 4px rgba(177, 149, 220, 0.874);
+    color: rgb(255, 251, 251) !important;"> <i class="fas fa-exclamation-triangle"></i> SOS Alert</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-white" href="{{ url_for('predict.predict') }}" style="
+    background-color: #0d6efd !important; 
+    border-radius: 5px; 
+    padding: 8px 15px; 
+    box-shadow: 0 2px 4px rgba(177, 149, 220, 0.874);
+    color: rgb(255, 251, 251) !important;"> <i class="fas fa-brain"></i> AI Prediction</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-white" href="{{ url_for('chatbot.chatbot') }}" style="
+    background-color: #0d6efd !important; 
+    border-radius: 5px; 
+    padding: 8px 15px; 
+    box-shadow: 0 2px 4px rgba(177, 149, 220, 0.874);
+    color: rgb(255, 251, 251) !important;"> <i class="fas fa-robot"></i> Chatbot</a>
+                        </li>
+                      
+                        <li class="nav-item">
+                            <a class="nav-link text-white" href="{{ url_for('logout') }}" style="
+    background-color: #0d6efd !important; 
+    border-radius: 5px; 
+    padding: 8px 15px; 
+    box-shadow: 0 2px 4px rgba(177, 149, 220, 0.874);
+    color: rgb(255, 251, 251) !important;"> <i class="fas fa-sign-out-alt"></i> Logout</a>
+                        </li>
+                    </ul>
+                </div>
+            </nav>
+
+            <!-- Main Content (Simple SOS Form) -->
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+                <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                    <h1 class="h2">🚨 User Dashboard</h1>
+                    <h4>Welcome! {{ username }}</h4>
+                </div>
+
+                <!-- SOS Alert Form (Simple Box with Location Fix) -->
+                <div class="box">
+                    <h4>Send SOS Alert</h4>
+                    
+                    <!-- Flash Messages (UNCHANGED: With dismissible and full categories) -->
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            {% for category, message in messages %}
+                                <div class="alert alert-{{ 'danger' if category == 'danger' else 'success' if category == 'success' else 'warning' if category == 'warning' else 'info' }} alert-dismissible fade show mt-2" role="alert">
+                                    {{ message }}
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+
+                    <form method="POST" action="{{ url_for('sos.sos_form') }}" id="sosForm">
+                        <!-- Hidden Fields for Location (Pre-set Defaults) -->
+                        <input type="hidden" name="latitude" id="latitude" value="13.0827">
+                        <input type="hidden" name="longitude" id="longitude" value="80.2707">
+
+                        <!-- Location Status -->
+                        <div id="location-status" class="alert alert-success mb-3">
+                            ✅ Location Set: Chennai (13.0827, 80.2707) - Ready!
+                        </div>
+
+                        <!-- Message Input -->
+                        <div class="mb-3">
+                            <label class="form-label">Emergency Message (Required):</label>
+                            <textarea name="description" id="description" class="form-control" rows="3" required 
+                                      placeholder="Describe your emergency" minlength="10"></textarea>
+                            <div class="form-text">Must be at least 10 characters for AI processing.</div>
+                        </div>
+
+                        <!-- Buttons -->
+                        <div class="row">
+                            <div class="col-md-6">
+                                <button type="button" onclick="getGPS()" class="btn btn-info w-100">🔄 Try GPS</button>
+                            </div>
+                            <div class="col-md-6">
+                                <button type="submit" class="btn btn-danger w-100">🚨 Send SOS</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- UPDATED: Use Flask's SocketIO script for consistency (instead of external CDN) -->
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        // Socket.IO Connection
+        const socket = io();
+
+        // Pre-set Location
+        let currentLat = 13.0827;
+        let currentLng = 80.2707;
+        document.getElementById('latitude').value = currentLat;
+        document.getElementById('longitude').value = currentLng;
+
+        // Try GPS (UNCHANGED: Your original function)
+        function getGPS() {
+            if (!navigator.geolocation) {
+                alert('Geolocation not supported. Use manual input.');
+                return;
+            }
+            document.getElementById('location-status').innerHTML = '🔄 Getting GPS...';
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    currentLat = position.coords.latitude;
+                    currentLng = position.coords.longitude;
+                    document.getElementById('latitude').value = currentLat;
+                    document.getElementById('longitude').value = currentLng;
+                    document.getElementById('location-status').innerHTML = `✅ GPS: ${currentLat.toFixed(4)}, ${currentLng.toFixed(4)}`;
+                    console.log('GPS success:', { lat: currentLat, lng: currentLng });
+                },
+                (error) => {
+                    console.error('GPS error:', error);
+                    document.getElementById('location-status').innerHTML = '❌ GPS Failed - Use Manual.';
+                    alert('GPS failed (check permissions). Use manual coords.');
+                },
+                { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+            );
+        }
+
+        // Form Validation (UNCHANGED: Your original, with minlength check)
+        document.getElementById('sosForm').addEventListener('submit', (e) => {
+            const lat = document.getElementById('latitude').value;
+            const lng = document.getElementById('longitude').value;
+            const desc = document.getElementById('description').value.trim();
+            if (!lat || !lng) {
+                e.preventDefault();
+                alert('Location required! Update or try GPS.');
+                return false;
+            }
+            if (!desc || desc.length < 10) {
+                e.preventDefault();
+                alert('Message required and must be at least 10 characters!');
+                return false;
+            }
+            console.log('Submitting SOS:', { lat, lng, desc });
+        });
+
+        // Socket Events (UNCHANGED: Your original)
+        socket.on('connect', () => console.log('Socket connected'));
+        socket.on('new_sos_alert', (data) => {
+            if (data.username === '{{ username }}') {
+                console.log('Your SOS received:', data);
+                // Optional: Show notification
+                alert('Your SOS alert has been sent! ID: ' + data.id);
+            }
+        });
+    </script>
+</body>
+</html>

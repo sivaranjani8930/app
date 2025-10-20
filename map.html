@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Live SOS Map</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+  <style>
+    body, html {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      font-family: Arial, sans-serif;
+    }
+    #map {
+      height: 100vh;
+      width: 100%;
+    }
+    .leaflet-popup-content {
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script>
+    // Initialize map centered on India
+    var map = L.map('map').setView([20.5937, 78.9629], 5);
+
+    // Add OpenStreetMap tile layer
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors'
+    }).addTo(map);
+
+    // Fetch SOS locations from Flask API
+   fetch("/map/sos_locations")
+  .then(res => res.json())
+  .then(data => {
+    data.forEach(sos => {
+      if (sos.latitude && sos.longitude) {
+        var marker = L.marker([sos.latitude, sos.longitude]).addTo(map)
+          .bindPopup(`<b>${sos.username}</b><br>${sos.description}<br>Status: ${sos.status}<br>Risk: ${sos.risk_level}`);
+        sosMarkers[sos.id] = marker;
+      }
+    });
+  })
+  .catch(err => console.error("Error loading SOS data:", err));
+
+  </script>
+</body>
+</html>

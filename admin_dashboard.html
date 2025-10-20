@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard</title>
+    
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
+    
+    <!-- Leaflet CSS for Map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" 
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" 
+          crossorigin=""/>
+    
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 20px auto;
+        }
+        .status-badge { 
+            font-size: 0.8em; 
+        }
+        /* Custom pulsing animation for markers (optional, if you want it for admin too) */
+        @keyframes pulse-red {
+            0% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(255, 0, 0, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0); }
+        }
+        .pulse-red div {
+            animation: pulse-red 1.5s infinite;
+        }
+        @keyframes pulse-orange {
+            0% { box-shadow: 0 0 0 0 rgba(255, 165, 0, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(255, 165, 0, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 165, 0, 0); }
+        }
+        .pulse-orange div {
+            animation: pulse-orange 1.5s infinite;
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <a class="navbar-brand" href="#">Admin Dashboard</a>
+        <div class="ml-auto">
+            <span class="text-white mr-3">Welcome, {{ username }}!</span>
+          
+        <!-- FIXED: Changed 'logout' to 'logout' (already correct) -->
+                <a class="nav-link" href="{{ url_for('logout') }}" class="btn btn-outline-light btn-sm">Logout</a>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <h2>Welcome, {{ username }}! Admin Portal</h2>
+        
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- ============================================ -->
+        <!-- LIVE MAP SECTION - PLACED FIRST -->
+        <!-- ============================================ -->
+        <div class="map-section mb-4">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h3 class="mb-0">🗺️ Live SOS Alerts Map</h3>
+                    <button onclick="refreshAdminMap()" class="btn btn-light btn-sm">
+                        🔄 Refresh Map
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    <!-- Map Container -->
+                    <div id="admin-live-map" style="width: 100%; height: 500px;"></div>
+                </div>
+                <div class="card-footer bg-light">
+                    <div class="d-flex flex-wrap" style="gap: 20px;">
+                        <span>
+                            <span class="badge badge-danger" style="display: inline-block; width: 12px; height: 12px; border-radius: 50%;"></span>
+                            Pending / High Risk
+                        </span>
+                        <span>
+                            <span class="badge badge-warning" style="display: inline-block; width: 12px; height: 12px; border-radius: 50%;"></span>
+                            Assigned / Medium Risk
+                        </span>
+                        <span>
+                            <span class="badge badge-success" style="display: inline-block; width: 12px; height: 12px; border-radius: 50%;"></span>
+                            Resolved
+                        </span>
+                        <span class="ml-auto text-muted">Click markers for details</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- ============================================ -->
+        <!-- END LIVE MAP SECTION -->
+        <!-- ============================================ -->
+
+        <!-- SOS Alerts Section -->
+        <div class="card shadow mb-4">
+            <div class="card-header bg-danger text-white">
+                <h3 class="mb-0">🚨 SOS Alerts</h3>
+            </div>
+            <div class="card-body">
+                {% if alerts %}
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>User</th>
+                                    <th>Description</th>
+                                    <th>Location</th>
+                                    <th>Risk Level</th>
+                                    <th>Status</th>
+                                    <th>Assigned To</th>
+                                    <th>Time</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for alert in alerts %}
+                                <tr>
+                                    <td>{{ alert.id }}</td>
+                                    <td>{{ alert.username }}</td>
+                                    <td>{{ alert.description[:50] }}...</td>
+                                    <td>{{ alert.latitude }}, {{ alert.longitude }}</td>
+                                    <td>
+                                        <span class="badge badge-{{ 'danger' if alert.risk_level == 'High' else ('warning' if alert.risk_level == 'Medium' else 'success') }}">
+                                            {{ alert.risk_level }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge badge-{{ 'danger' if alert.status == 'pending' else ('warning' if alert.status == 'assigned' else 'success') }}">
+                                            {{ alert.status }}
+                                        </span>
+                                    </td>
+                                    <td>{{ alert.assigned_to or 'Unassigned' }}</td>
+                                    <td>{{ alert.timestamp }}</td>
+                                    <td>
+                                        {% if alert.status == 'pending' %}
+                                            <form method="POST" class="d-inline">
+                                                <input type="hidden" name="sos_id" value="{{ alert.id }}">
+                                                <input type="text" name="volunteer_name" placeholder="Volunteer name" required class="form-control form-control-sm d-inline" style="width: 120px;">
+                                                <button type="submit" class="btn btn-primary btn-sm">Assign</button>
+                                            </form>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <p class="text-muted">No SOS alerts at the moment.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Resources Management Section -->
+        <div class="card shadow mb-4">
+            <div class="card-header bg-success text-white">
+                <h3 class="mb-0">📦 Resource Management</h3>
+            </div>
+            <div class="card-body">
+                <!-- Add Resource Form -->
+                <form method="POST" action="{{ url_for('admin.add_resource') }}" class="mb-4">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <input type="text" name="resource_name" placeholder="Resource Name" required class="form-control">
+                        </div>
+                        <div class="col-md-3">
+                            <input type="number" name="quantity" placeholder="Quantity" required class="form-control">
+                        </div>
+                        <div class="col-md-3">
+                            <select name="status" required class="form-control">
+                                <option value="Available">Available</option>
+                                <option value="Low">Low Stock</option>
+                                <option value="Out of Stock">Out of Stock</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="submit" class="btn btn-success btn-block">Add Resource</button>
+                        </div>
+                    </div>
+                </form>
+
+               
+                <!-- Existing Resources -->
+                <div class="card">
+                    <div class="card-header bg-info text-white">
+                        <h5>📦 Resources ({{ resources|length }})</h5>
+                    </div>
+                    <div class="card-body">
+                        {% if resources %}
+                            {% for resource in resources %}
+                            <div class="card mb-2">
+                                <div class="card-body">
+                                    <h6 class="card-title">{{ resource.resource_name }}</h6>
+                                    <p class="card-text">Qty: {{ resource.quantity }} | Status: {{ resource.status }}</p>
+                                    <form method="POST" action="{{ url_for('admin.update_resource') }}" style="display: inline;">
+                                        <input type="hidden" name="res_id" value="{{ resource.id }}">
+                                        <input type="number" name="quantity" value="{{ resource.quantity }}" class="form-control d-inline-block w-auto" min="0" required>
+                                        <select name="status" class="form-select d-inline-block w-auto">
+                                            <option value="Available" {{ 'selected' if resource.status == 'Available' }}>Available</option>
+                                            <option value="Low" {{ 'selected' if resource.status == 'Low' }}>Low</option>
+                                            <option value="Out of Stock" {{ 'selected' if resource.status == 'Out of Stock' }}>Out of Stock</option>
+                                        </select>
+                                        <button type="submit" class="btn btn-sm btn-warning">Update</button>
+                                    </form>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <p class="text-muted">No resources. Add some above!</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+<!-- Pending Deliveries Section -->
+        {% if deliveries %}
+        <div class="card shadow mb-4">
+            <div class="card-header bg-info text-white">
+                <h3 class="mb-0">🚚 Pending Deliveries</h3>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Volunteer</th>
+                                <th>Item</th>
+                                <th>Quantity</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for delivery in deliveries %}
+                            <tr>
+                                <td>{{ delivery.id }}</td>
+                                <td>{{ delivery.volunteer_username }}</td>
+                                <td>{{ delivery.item }}</td>
+                                <td>{{ delivery.quantity }}</td>
+                                <td>
+                                    <span class="badge badge-warning">{{ delivery.status }}</span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+    </div>
+
+
+
+    <!-- Bootstrap JS -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" 
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" 
+            crossorigin=""></script>
+    
+    <!-- Admin Map Script -->
+    <script src="{{ url_for('static', filename='js/admin_map.js') }}"></script>
+
+</body>
+</html>

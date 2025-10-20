@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+
+{% block title %}Users Dashboard{% endblock %}
+
+{% block content %}
+  <h2>Welcome, User!</h2>
+  <p>Use the dashboard to view SOS requests and assigned tasks.</p>
+  <ul>
+    <li><a href="/get_sos">View Pending SOS Requests (JSON)</a></li>
+    <li><a href="/assigned_tasks/1">View Your Assigned Tasks</a></li> <!-- Replace 1 with dynamic ID -->
+  </ul>
+{% endblock %}
